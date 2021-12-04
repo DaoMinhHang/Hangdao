@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--My favourite albums-->
+<!--Albums are in chronological order-->
+<ABBA_albums>
+   <album id="1">
+      <name>Ring Ring</name>
+      <year>1973</year>
+      <label>Polar</label>
+      <empty_element></empty_element>	
+   </album>
+   <album id="2">
+      <name>Waterloo</name>
+      <year>1974</year>
+      <label>Polar</label>
+      <empty_element></empty_element>
+   </album>
+   <album id="3">
+      <name>ABBA</name>
+      <year>1975</year>
+      <label>Polar</label>
+      <empty_element></empty_element>
+   </album>      
+</ABBA_albums>
+

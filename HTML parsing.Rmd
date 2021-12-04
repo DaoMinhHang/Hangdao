@@ -1,0 +1,124 @@
+
+
+## Research Skills: Online Data Collection
+
+## Worksheet 2
+ IMDb is a website that contains all kinds of information about movies, TV shows, and the people that work on them. Today, our goal is to obtain information about one particular movie: Scott Pilgrim vs. the World (https://www.imdb.com/title/tt0446029/). 
+
+```{r Install rvest}
+install.packages('rvest', repos = "http://cran.us.r-project.org")
+install.packages('stringr', repos = "http://cran.us.r-project.org")
+library(rvest)
+library(stringr)
+```
+
+Read the HTML code for Scott Pilgrim vs. the World's IMDb page into a value named "scottpilgrim"
+
+```{r Exercise 1: Read HTML code}
+scottpilgrim <- read_html("https://www.imdb.com/title/tt0446029/")
+scottpilgrim
+
+```
+
+
+```{r Exercise 2: Obtain the movie rating}
+imdb_rating <- scottpilgrim %>%
+  html_node("strong span") %>%
+  html_text()
+
+imdb_rating
+#because "7.5" is the affected content of the tag names "strong" and "span" using html_node. "strong" and "span" are 2 nodes that are # called
+```
+
+
+With `html_node()` we can look for the names of elements as we did above, but we can also be more specific in our searches. For instance, in the example below we search for an element named "div" with attribute name "class" and attribute value "title_wrapper". And inside of that element we look for an element named "h1". This gives us the title of the movie:
+
+```{r Movie title}
+imdb_title <- scottpilgrim %>%
+  html_node("div [class='title_wrapper'] h1") %>%
+  html_text() 
+
+imdb_title
+
+```
+
+Using the `str_trim()` and `str_remove()` functions from the *stringr* package for prettier format
+
+```{r Clean string}
+imdb_title <- str_remove(imdb_title, "\\(2010\\)")
+imdb_title <- str_trim(imdb_title)
+imdb_title
+```
+
+With the `str_remove()` function we remove the year "(2010)" from the title. 
+
+
+Use the `html_node()` function to capture two more pieces of information using `html_node()`, and (if necessary) remove parts of the text that shouldn't be there using `str_remove()` or `str_trim()`.
+
+```{r Exercise 3: Collect two more pieces of information}
+# summary plot and story lines are collected
+summary_plot <- scottpilgrim %>%
+  html_node("div [class='summary_text']") %>%
+  html_text()
+summary_plot <- str_trim(summary_plot)
+  
+summary_plot
+
+story_line <- scottpilgrim %>%
+  html_node("div [class='inline canwrap'] span") %>%
+  html_text()
+story_line <- str_trim(story_line)
+story_line
+```
+
+Capture multiple nodes:
+
+```{r Capturing all quotes}
+## Obtain the HTML code of the quotes page first
+imdb_quotes_scottpilgrim <- read_html("https://www.imdb.com/title/tt0446029/quotes/")
+
+# Capture the list containing all quotes
+imdb_quotelist <- imdb_quotes_scottpilgrim %>%
+  html_node("div [class='list']")
+
+#Capture all the quotes from the list
+imdb_quotes <- imdb_quotelist %>%
+  html_nodes("div [class='sodatext']") %>%
+  html_text()
+
+#And clean it up a bit
+imdb_quotes <- str_trim(imdb_quotes)
+imdb_quotes <- str_replace_all(imdb_quotes, ":\n", ": ")
+imdb_quotes <- data.frame(imdb_quotes)
+
+imdb_quotes[1:4,]
+
+```
+
+
+Use `html_nodes()` to find the second instance that an element appears, or the third, or the fourth, etc.
+
+```{r Third quote}
+#Capture the third quote from the list
+third_quote <- imdb_quotelist %>%
+  html_nodes("div [class='sodatext']") %>%.[[3]] %>%
+  html_text()
+
+#And clean it up a bit
+third_quote <- str_trim(third_quote)
+third_quote <- str_replace_all(third_quote, ":\n", ": ")
+
+third_quote
+```
+
+Use the information on the rvest website and the information on `html_nodes()` or `html_node()` from the previous code chunks to capture the "cast" table on https://www.imdb.com/title/tt0446029/fullcredits 
+
+```{r Exercise 4: Capture the cast table}
+imdb_cast_scottpilgrim <- read_html("https://www.imdb.com/title/tt0446029/fullcredits")
+
+imdb_castlist <- imdb_cast_scottpilgrim %>%
+  html_nodes("table") %>%.[[3]] %>%
+  html_table()
+
+imdb_castlist
+```

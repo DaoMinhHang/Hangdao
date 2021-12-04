@@ -1,0 +1,306 @@
+
+## Research Skills: Online Data Collection
+
+## Worksheet 4
+## Web Scraping
+
+
+```{r Install rvest and stringr}
+install.packages("rvest", repos = "http://cran.us.r-project.org")
+install.packages("stringr", repos = "http://cran.us.r-project.org")
+install.packages("XML", repos = "http://cran.us.r-project.org")
+library(rvest)
+library(stringr)
+library(XML)
+```
+
+```{r Collect Scott Pilgrim information}
+## Read the HTML page of Scott Pilgrim Vs. The World
+imdb <- read_html("https://www.imdb.com/title/tt0446029/")
+
+## Obtain the rating for the movie
+imdb_rating <- imdb %>%
+  html_node("strong span") %>%
+  html_text()
+
+## Obtain the title of the movie
+imdb_title <- imdb %>%
+  html_node("div [class='title_wrapper'] h1") %>%
+  html_text()
+
+imdb_title <- str_remove(imdb_title, "\\(2010\\)")
+imdb_title <- str_trim(imdb_title)
+imdb_title
+
+## Obtain the director of the movie
+imdb_director <- imdb %>%
+  html_node("div [class='credit_summary_item'] a") %>%
+  html_text()
+imdb_director
+
+## Obtain the genres of the movie
+imdb_genres <- imdb %>%
+  html_nodes("div [class='subtext'] a") %>%
+  html_text()
+imdb_genres
+
+
+imdb_genres <- imdb_genres[1:3]
+
+## Obtain the runtime of the movie
+imdb_runtime <- imdb %>%
+  html_nodes("div [class='subtext'] time") %>%
+  html_text()
+imdb_runtime <- str_trim(imdb_runtime)
+```
+
+
+
+```{r Collect Edgar Wright filmography}
+## Use the mobile version of IMDB to look at all the movies he directed
+filmography <- read_html("https://m.imdb.com/name/nm0942367/filmotype/director")
+
+## Find all movies
+filmography_table <- filmography %>% 
+  ## Let's first go to the section with all the movies
+  html_node("[id='name-filmo-content']") %>%
+  ## Now let's go to all the movies
+  html_nodes("[class='col-xs-12 col-md-6']")
+
+## The first two movies aren't released yet, so we can ignore those
+filmography_links <- filmography_table[-c(1, 2)] %>%
+  ## Now let's collect the links for the movies
+  html_node("a") %>%
+  html_attr("href")
+
+## A regular expression to clear the unnecessary part of the IMDb link
+filmography_links <- str_remove(filmography_links, regex("/\\?(.*?)$"))
+
+## And make them complete links
+filmography_links <- paste0('https://www.imdb.com', filmography_links)
+filmography_links 
+```
+
+In the code chunk above we have used the mobile version of the IMDb website to get all the movies that Edgar Wright has directed. This mobile website makes scraping all these links a bit less complicated compared to the full website. With a bit of string modification we are now left with a vector containing all the URLs to IMDb pages of movies, directed by Edgar Wright, that have been released. With this vector of links, we can slightly modify our code to scrape one web page to now collect information from 26 web pages:
+
+```{r Collect Edgar Wright movie data}
+## Build a data frame with 5 columns
+director.df <- data.frame(matrix(ncol = 5, nrow = 0))
+
+## Read the HTML page of all film pages
+for(film in seq_along(filmography_links)){
+  imdb <- read_html(filmography_links[film])
+  
+  ## Obtain the rating for the movie
+  imdb_rating <- imdb %>%
+    html_node("strong span") %>%
+    html_text()
+  
+  ## Obtain the title of the movie
+  imdb_title <- imdb %>%
+    html_node("div [class='title_wrapper'] h1") %>%
+    html_text()
+  imdb_title <- str_remove(imdb_title, "\\(2010\\)")
+  imdb_title <- str_trim(imdb_title)
+  
+  ## Obtain the director of the movie
+  imdb_director <- imdb %>%
+    html_node("div [class='credit_summary_item'] a") %>%
+    html_text()
+  
+  ## Obtain the genres of the movie
+  imdb_genres <- imdb %>%
+    html_nodes("div [class='subtext'] a") %>%
+    html_text()
+  
+  imdb_genres <- imdb_genres[1:3]
+  
+  ## Obtain the runtime of the movie
+  imdb_runtime <- imdb %>%
+    html_nodes("div [class='subtext'] time") %>%
+    html_text()
+  imdb_runtime <- str_trim(imdb_runtime)
+  
+  ## Add the movie information to the data frame
+  director.df <- rbind(director.df, c(imdb_title, imdb_rating, imdb_director, toString(imdb_genres), imdb_runtime))
+}
+
+## And add the column names
+legend <- c("title", "rating", "director", "genres", "runtime")
+director.df <- setNames(director.df, legend)
+
+director.df
+```
+
+## XPath
+
+
+```{r Get Title}
+## Read the website
+postman_pat <- read_html("https://www.imdb.com/title/tt0149509/")
+
+## Get the title
+postman_pat_title <- postman_pat %>% 
+  html_node(xpath='//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/h1') %>%
+  html_text
+
+## And make it look a bit prettier
+postman_pat_title <- str_trim(postman_pat_title)
+
+postman_pat_title
+```
+
+
+
+**Exercise**
+(1) Using the XPath code of elements, collect the following pieces of information on the Postman Pat IMDb page (https://www.imdb.com/title/tt0149509/):
+
+* The rating of Postman Pat
+* The genres of Postman Pat
+* The runtime of Postman Pat
+
+
+```{r Exercise 1: Collect Postman Pat information}
+postman_pat_rating <- postman_pat %>% 
+  html_node(xpath='//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[1]/div[1]/div[1]/strong/span') %>%
+  html_text
+postman_pat_rating
+
+postman_pat_genres <- postman_pat %>% 
+  html_node(xpath='//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/div/a[1]') %>%
+  html_text
+postman_pat_genres
+
+postman_pat_runtime <- postman_pat %>% 
+  html_node(xpath='//*[@id="title-overview-widget"]/div[1]/div[2]/div/div[2]/div[2]/div/time') %>%
+  html_text
+postman_pat_runtime<-str_trim(postman_pat_runtime)#, regex("/\\?(.*?)$"))
+postman_pat_runtime
+```
+
+
+## APIs
+
+```{r Install/Load packages for using APIs}
+install.packages("httr", repos = "http://cran.us.r-project.org")
+## Uncomment if you didn't install jsonlite in the previous worksheet
+install.packages("jsonlite", repos = "http://cran.us.r-project.org")
+library(httr)
+library(jsonlite)
+```
+
+```{r Get Taylor Swift quotes}
+#Use a GET() command to request a Taylor Swift quote
+tay_tay <- GET("https://api.taylor.rest/")
+tay_tay
+```
+
+In the code chunk above, we use the `HTTR` package to request a random Taylor Swift quote using the `GET` command. 
+
+```{r Get Taylor Swift quotess}
+#Use a GET() command to request a Taylor Swift quote
+tay_tay_quote <- rawToChar(tay_tay$content)
+tay_tay_quote
+```
+
+In its current state, the data in the `tay_tay` variable is not usable. The actual data is contained as raw Unicode* in the `tay_tay` list, which ultimately needs to be converted into JSON format.
+
+
+
+```{r Get Taylor Swift quote}
+#Use a GET() command to request a Taylor Swift quote
+tay_tay_quote.json <- fromJSON(tay_tay_quote)
+tay_tay_quote.json
+```
+
+From a character vector (the `tay_tay_quote` value), we can convert it into a `list` data structure using the `fromJSON()` function from the *jsonlite* library.
+
+The `fromJSON()` function needs a character vector that contains the JSON structure, which is exactly what we got with the `{r Get Taylor Swift quotes}` code chunk. So, if we add the output of that code chunk to the `fromJSON()` function, we’ll get the data we want in a format that we can more easily manipulate in R. As you can see, now we get a nice list with three keys: `id` (probably a number assigned to each quote in the database), `quote` (the particular quote), and `author` (that's probably Taylor Swift).
+
+# Parameters
+
+
+
+*Exercise*
+
+
+```{r Exercise 2: Collect information about Tilburg University}
+tilburg_request = GET("http://universities.hipolabs.com/search",
+    query = list(name = 'Tilburg', country = 'Netherlands'))
+tilburg_request
+```
+
+Now that we've made the request, we can convert the content to something readable the same way as we did for the Taylor Swift quote.
+
+```{r Collect Information About Tilburg University}
+tilburg_rawchar <- rawToChar(tilburg_request$content)
+tilburg_rawchar.json <- fromJSON(tilburg_rawchar)
+tilburg_rawchar.json
+```
+
+```{r Exercise 3: Collect jokes from JokeAPI}
+Joke_request<-GET("https://v2.jokeapi.dev/joke/Programming?type=twopart&amount=5", query=list(category= 'Programming', type='twopart'))
+Joke_request
+joke_rawchar <- rawToChar(Joke_request$content)
+joke_rawchar.json <- fromJSON(joke_rawchar)
+joke_rawchar.json
+```
+
+## Authentication
+Using the information on http://www.omdbapi.com/, collect the data for `Scott Pilgrim Vs. The World`.
+Extract the `Year` (of Release) from that data
+
+```{r Exercise 4: Collect the API data for Scott Pilgrim Vs. The World}
+scottpilgrim<-GET("http://www.omdbapi.com/?i=tt3896198&apikey=4228e4c0", query=list(Year='Year'))
+scottpilgrim
+scott_rawchar <- rawToChar(scottpilgrim$content)
+scott_rawchar
+scott.json <- fromJSON(scott_rawchar)
+scott.json
+```
+
+```{r Exercise 5: Collect the API data for all of Edgar Wright movies}
+#Convert the filmography_links value to only contain the IMDb IDs
+
+install.packages("stringi", repos = "http://cran.us.r-project.org")
+install.packages("stringr", repos = "http://cran.us.r-project.org")
+
+library(stringi)
+library(stringr)
+filmography_ids <- str_extract(filmography_links, regex('/tt[^/]+$'))
+filmography_ids <- str_remove(filmography_ids, '/')
+
+## Build a data frame with 5 columns
+directorapi.df <- data.frame(matrix(ncol = 5, nrow = 0))
+
+#Now let's iterate over every filmography link and extract the parts that we want
+for(film in seq_along(filmography_ids)){
+  #Request the joke with two parameters (type and amount)
+  movie_request = GET("http://www.omdbapi.com/",
+      query = list(apikey = '4228e4c0', i = filmography_ids[film]))
+  
+  #Convert the response to a base string
+  movie_request_rawchar <- rawToChar(movie_request$content)
+  #And then to a JSON file
+  movie_request_rawchar.json <- fromJSON(movie_request_rawchar)
+  movie_request_rawchar.json
+  
+  #Collect all the relevant elements from the movie JSON
+  imdb_title <- movie_request_rawchar.json$Title
+  imdb_rating <- movie_request_rawchar.json$imdbRating
+  imdb_director <- movie_request_rawchar.json$Director
+  imdb_genres <- movie_request_rawchar.json$Genre
+  imdb_runtime <- movie_request_rawchar.json$Runtime
+  
+  ## Add the movie information to the data frame
+  directorapi.df <- rbind(directorapi.df, c(imdb_title, imdb_rating, imdb_director, imdb_genres, imdb_runtime))
+}
+
+## And add the column names
+legend <- c("title", "rating", "director", "genres", "runtime")
+directorapi.df <- setNames(directorapi.df, legend)
+directorapi.df
+#difference: directorapi.df has  missing values while director.df does not
+```
+
+
