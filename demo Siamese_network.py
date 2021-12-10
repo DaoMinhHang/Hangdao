@@ -50,6 +50,7 @@ possible_pairs=[]
 for idx,a in enumerate(list_audios):
     for b in list_audios[idx+1:]:
         possible_pairs.append([a,b])
+# Crate corresponding labels
 possible_labels=[(a,b)for idx,a in enumerate(list_labels) for b in list_labels[idx+1:]]
 
 # Create new labels for them: 0 and 1. 0: negative pair. 1: positive pair
