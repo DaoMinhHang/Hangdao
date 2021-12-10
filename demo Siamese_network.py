@@ -40,15 +40,19 @@ raw_data = pickle.load(open("./raw_data.pkl", 'rb'))
 
 audios = raw_data[0]
 labels = raw_data[1]
+# A huge number of records will be created (up to 40 millions records), so I only took a smaller sample for demo purpose.
 
 list_audios=list(audios[:80])
 list_labels=list(labels[:80])
+
+# Create all possible pair combinations
 possible_pairs=[]
 for idx,a in enumerate(list_audios):
     for b in list_audios[idx+1:]:
         possible_pairs.append([a,b])
 possible_labels=[(a,b)for idx,a in enumerate(list_labels) for b in list_labels[idx+1:]]
 
+# Create new labels for them: 0 and 1. 0: negative pair. 1: positive pair
 siamese_labels=[]
 for pair_label in possible_labels:
     if pair_label[0]==pair_label[1]:
@@ -64,6 +68,7 @@ X_train, X_test, y_train, y_test = train_test_split(train_pairs, train_labels, t
 
 y_train=y_train.astype('float32')
 y_test=y_test.astype('float32')
+
 def build_base_network(input_shape):
     input = Input(shape=input_shape)
     x = Flatten()(input)
