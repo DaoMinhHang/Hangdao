@@ -183,7 +183,6 @@ postman_pat_runtime
 
 ```{r Install/Load packages for using APIs}
 install.packages("httr", repos = "http://cran.us.r-project.org")
-## Uncomment if you didn't install jsonlite in the previous worksheet
 install.packages("jsonlite", repos = "http://cran.us.r-project.org")
 library(httr)
 library(jsonlite)
