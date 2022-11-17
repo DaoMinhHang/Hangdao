@@ -211,7 +211,7 @@ if 1 == 1:
                     model_results['Coherence'].append(cv)
                     
                     pbar.update(1)
-    pd.DataFrame(model_results).to_csv('lda_tuning_results_2005_11.csv', index=False)
+    pd.DataFrame(model_results).to_csv('lda_tuning_results_2005_08.csv', index=False)
     pbar.close()
     
 lda_model8= gensim.models.LdaMulticore(corpus=corpus,
