@@ -1,0 +1,505 @@
+# Install packages ----cài đặt
+install.packages("caret", dependencies = TRUE)
+install.packages("magrittr") # package installations are only needed the first time you use it
+install.packages("dplyr")    # alternative installation of the %>%
+install.packages("tidyverse")
+
+## Load packages --- Tải các package---------------------------------------------------------------
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+library(caret)
+library(tidyverse)
+library(magrittr) 
+
+
+## Exploratory Data Analysis --- Phân tích khám phá---------------------------------------------------
+
+cars <- read.csv("final_data.csv", header = TRUE)
+
+
+
+
+## It makes no sense to classify a Ferrari or a Rolls-Royce, since they
+## belong into a very niche market, they are considered rare and luxurious
+## and their prices will never reach even a moderate high-end budget range.
+## They are going always belong into the luxurious range even after being in
+## second or third hands
+-----
+## Dự đoán giá xe cao cấp như Ferrari hay Roll-Royce không có ý nghĩa, vì các hãng xe này
+## luôn ở thị trường hẹp, mức giá cao đặc biệt, không bao giờ nằm trong khoảng 
+## giá có thể chấp nhận được cho số đông thị trường. Mức giá những loại xe này 
+## luôn đặc biệt đắt đỏ dù đã qua sử dụng 2 lần hay 3 lần
+
+## In that sense, we omitted every brand that historically and practically
+## belong into this luxurious category.
+## The brands we omitted were Rolls-Royce, Lamborghini, Ferrari, McLaren,
+## Maybach, Jaguar, Aston Martin, Bentley, Maserati and Porsche
+-----
+## Vì vậy, tất cả các hãng xe được coi là xa xỉ trên thị trường đều bị loại bỏ khỏi mô hình 
+## dự đoán. Các hãng xe được loại bỏ là Rolls-Royce, Lamborghini, Ferrari, McLaren,
+## Maybach, Jaguar, Aston Martin, Bentley, Maserati và Porsche
+  ---------
+## Mercedes-Benz, BMW, Lexus, Tesla and many more expensive brands are kept
+## because not only not falling into the categories of super-cars or luxury,
+## they also offer mid-low end cars
+  -----
+## Mercedes-Benz, BMW, Lexus, Tesla và nhiều hãng xe đắt khác được giữ lại vì những hãng này
+## không chỉ có mỗi dòng siêu xe và xe cao cấp mà con có dòng xe có giá trung bình thấp
+
+#### BEFORE ##### TRƯỚC KHI LÀM SẠCH DỮ LIỆU
+# Check the prices of cars and their density
+# Kiểm tra giá xe và phân phối giá xe
+ggplot(data = cars, aes(x = Price)) +
+  geom_density()
+
+# Check all unique car brands
+# Kiểm tra các nhãn hiệu xe (không trùng lặp) (72 nhãn hiệu)
+unique_brands <- sort(unique(cars$Vehicle_brand))
+nrow(as.array(unique_brands))
+
+# Group by car brands
+# Nhóm theo nhãn hiệu
+cars_copy <- cars %>% group_by(Vehicle_brand)
+
+# Check number of cars  in each brand
+# Kiểm tra số lượng ô tô cho mỗi nhãn hiệu (theo phân phối thống kê)
+Vehicle_brand_population <- summarise(cars_copy,
+                                      population = n(),
+                                      .groups = "keep")
+
+# how many cars of each brand are represented in this dataset
+# Có bao nhiêu xe ô tô cho mỗi nhãn hiệu
+ggplot(data = Vehicle_brand_population,
+       aes(x = reorder(Vehicle_brand, -population),
+           y = population,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+# group cars by brand and seeing the median value
+# nhóm xe theo nhãn hiệu và kiểm tra giá trị trung vị của mỗi nhãn hiệu
+cars_copy <- cars %>%
+  group_by(Vehicle_brand)
+
+Vehicle_brand_medians <- summarise(cars_copy,
+                                   median.price = median(as.numeric(Price)),
+                                   .groups = "keep")
+# Plot the medians for each brand
+# trực quan hóa các giá trị trung vị cho mỗi nhãn hiệu
+
+ggplot(data = Vehicle_brand_medians,
+       aes(x = reorder(Vehicle_brand, -median.price),
+           y = median.price,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+# maximum and minimum price of a brand
+# Giá lớn nhất và giá thấp nhất cho mỗi nhãn hiệu
+Vehicle_brand_max <- summarise(cars_copy,
+                               max.price = max(Price),
+                               min.price = min(Price),
+                               .groups = "keep")
+# visualize the maximum prices of each brand
+# Trực quan hóa về giá cao nhất cho mỗi nhãn hiệu
+ggplot(data = Vehicle_brand_max,
+       aes(x = reorder(Vehicle_brand, -max.price),
+           y = max.price,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+# Visualize the minimum prices for each brand
+# Trực quan hóa về giá thấp nhất cho mỗi nhãn hiệu
+ggplot(data = Vehicle_brand_max,
+       aes(x = reorder(Vehicle_brand, -min.price),
+           y = min.price,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+max(cars$Price)
+min(cars$Price)
+mean(cars$Price)
+median(cars$Price)
+
+# Checking the price range
+# Tìm khoảng giá
+price_range <- max(cars$Price) - min(cars$Price)
+price_range
+
+
+
+
+#### AFTER REMOVING ULTRA-LUXURIUS BRANDS ####
+# SAU KHI XÓA CÁC NHÃN HIỆU ĐẶC BIỆT CAO CẤP
+clean_cars <- cars %>%
+  filter(Vehicle_brand != "Ferrari") %>%
+  filter(Vehicle_brand != "Rolls-Royce") %>%
+  filter(Vehicle_brand != "Maybach") %>%
+  filter(Vehicle_brand != "McLaren") %>%
+  filter(Vehicle_brand != "Lamborghini") %>%
+  filter(Vehicle_brand != "Aston Martin") %>%
+  filter(Vehicle_brand != "Jaguar") %>%
+  filter(Vehicle_brand != "Bentley") %>%
+  filter(Vehicle_brand != "Porsche") %>%
+  filter(Vehicle_brand != "Maserati")
+
+# Check unique brands
+# Check số nhãn hiệu (Không trùng lặp)
+
+unique_brands <- sort(unique(clean_cars$Vehicle_brand))
+unique_brands
+nrow(as.array(unique_brands))
+
+# Group by brands after cleaning the luxurious brands
+# Nhóm theo nhãn hiệu sau khi loại bỏ nhãn hiệu cao cấp
+clean_cars_copy <- clean_cars %>%
+  group_by(Vehicle_brand)
+
+# CHeck number of cars per brand after excluding luxurious brands
+Vehicle_brand_population <- summarise(clean_cars_copy,
+                                      population = n(),
+                                      .groups = "keep")
+
+# visualize how many cars of each brand are represented in this dataset
+# Trực quan hóa số ô tô mỗi nhãn hiệu
+ggplot(data = Vehicle_brand_population,
+       aes(x = reorder(Vehicle_brand, -population),
+           y = population,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+  # median value
+# Trung vị cho mỗi nhãn hiệu
+Vehicle_brand_medians <- summarise(clean_cars_copy,
+                                   median.price = median(as.numeric(Price)),
+                                   .groups = "keep")
+
+# Visualize medians of each brand
+# Trực quan hóa giá trị trung vị của mỗi nhãn hiệu
+ggplot(data = Vehicle_brand_medians,
+       aes(x = reorder(Vehicle_brand, -median.price),
+           y = median.price,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+# maximum and minimum price of a brand
+# Giá cao nhất và thấp nhất của mỗi nhãn hiệu
+Vehicle_brand_minmax <- summarise(clean_cars_copy,
+                               max.price = max(Price),
+                               min.price = min(Price),
+                               .groups = "keep")
+
+# Visualize maximum prices of each brand
+# Trực quan hóa giá cao nhất của mỗi nhãn hiệu
+ggplot(data = Vehicle_brand_minmax,
+       aes(x = reorder(Vehicle_brand, -max.price),
+           y = max.price,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+# Visualize minimum prices of each brand
+# Trực quan hóa giá thấp nhất của mỗi nhãn hiệu
+
+ggplot(data = Vehicle_brand_minmax,
+       aes(x = reorder(Vehicle_brand, -min.price),
+           y = min.price,
+           fill = as.factor(Vehicle_brand))) +
+  geom_bar(stat = "identity", col = "white") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+        legend.position = "none")
+
+
+# price distribution plot
+# Trực quan hóa phân phối giá xe
+ggplot(data = clean_cars, aes(x = Price)) +
+  geom_density()
+
+# Histogram of price frequency
+# Trực quan hóa tần xuất giá xe 
+ggplot(data = clean_cars, aes(x = Price)) +
+  geom_histogram(bins = 100)
+
+# Price boxplot
+# Trực quan hóa bằng boxplot cho giá xe
+
+ggplot(data = clean_cars, aes(x = Price)) +
+  geom_boxplot() +
+  coord_flip()
+
+max(clean_cars$Price)
+min(clean_cars$Price)
+mean(clean_cars$Price)
+median(clean_cars$Price)
+# Price range after excluding luxurious brands
+# KHoảng giá sau khi loại bỏ nhãn hiệu cao cấp
+price_range <- max(clean_cars$Price) - min(clean_cars$Price)
+price_range
+
+
+
+
+## Model : Logistic Regression--------------------------------------------------
+library(caret)
+library(dbplyr)
+library(tidyverse)
+
+
+cars_LR <- read.csv("final_data.csv", header = TRUE)
+
+# filter out top luxury brand cars because their prices are always on top,
+# classifying them would make little sense
+--- 
+  
+# Loại bỏ nhãn hiệu cao cấp vì những dòng này luôn cao nhất trên thị trường,
+# Việc dự đoán mức giá những dòng này không có ý nghĩa
+cars_LR <- cars_LR %>%
+  filter(Vehicle_brand != "Ferrari") %>%
+  filter(Vehicle_brand != "Rolls-Royce") %>%
+  filter(Vehicle_brand != "Maybach") %>%
+  filter(Vehicle_brand != "McLaren") %>%
+  filter(Vehicle_brand != "Lamborghini") %>%
+  filter(Vehicle_brand != "Aston Martin") %>%
+  filter(Vehicle_brand != "Jaguar") %>%
+  filter(Vehicle_brand != "Bentley") %>%
+  filter(Vehicle_brand != "Porsche") %>%
+  filter(Vehicle_brand != "Maserati")
+
+# take the median of remaining prices as the threshold for
+# binary outcome after excluding top luxury cars
+# Lấy giá trị trung vị của những giá xe còn lại làm ngưỡng phân loại thành 2 mức giá "expensive" và "affordable" ("đắt" và "vừa phải")
+threshold<-median(cars_LR$Price)
+
+# create a column to label the price range
+# Tạo cột biểu thị 2 mức giá "expensive" và "affordable"
+price_label<- ifelse(cars_LR$Price>threshold, "expensive", "affordable")
+cars_LR$price_label<-price_label
+
+
+#remove irrelevant features
+# bỏ những biến không liên quan
+cars_LR <- cars_LR%>% select(-c("X": "Currency", "Condition", "Vehicle_model":"Vehicle_generation", "CO2_emissions",
+                                "Origin_country":"Offer_publication_date", "Offer_location"))%>% na.omit()
+
+# categorical variables representing the car features (such as 
+# ABS, Electric_front_window, Drivers_airbag.etc.) will not 
+# be included in the model as predictors, because a car with these 
+# features obviously has a higher price compared to one without these features,
+# including too many of these features might cause overfitting, so we removed them
+-----
+# Những biến phân loại thuộc về nội thất của xe như ABS, cửa sổ điện trước, túi khí...) sẽ
+# không được lưu lại làm biến độc lập cho mô hình dự đoán, vì ô tô với những thiết bị này luôn đắt hơn
+# những xe cùng loại mà không có những thiết bị này, việc cho quá nhiều biến độc lập có thể gây ra "sự quá khớp" (overfitting)
+# nên chúng tôi loại bỏ các biến này
+cars_LR<- cars_LR[, -c(12:81)]
+
+#convert some features into factors to train
+# Chuyển các biến có thể phân loại sang factor để huấn luyện mô hình
+cols=c("Vehicle_brand", "Fuel_type",
+       "Drive","Transmission", "Type", "Production_year", "Doors_number")
+cars_LR[cols]<-lapply(cars_LR[cols], FUN=factor)
+
+# Remove N/A values
+# Bỏ các giá trị N/A
+cars_LR<- cars_LR%>% na.omit()
+
+# In the price label column, convert the price with label "affordable" thành 1, "expensive" thành 0
+# Chuyển mức giá "affordable" thành 1, "expensive' thành 0
+price_label_no<-ifelse(cars_LR$price_label=="affordable", 1, 0)
+cars_LR$price_label2<-price_label_no
+
+#check multicollinearity between (continuous) independent variables/predictors by visualization
+# Kiểm tra tính đa cộng tuyến giữa các biến (liên tục) độc lập  bằng cách trực quan hóa
+
+#it can be seen that Displacement_cm3 and Power_HP are correlated
+# có thể thấy biến Displacement_cm3 và Power_HP có tương quan với nhau
+
+pairs(Power_HP~Displacement_cm3+Mileage_km, data = cars_LR,
+      na.action = stats::na.pass)
+
+
+# Recheck to confirm the multicollinearity between independent variables by VIF measure
+# Kiểm chứng lại tính đa cộng tuyến giữa các biến độc lập bằng VIF
+
+# Create a regression model with all independent variables to get the VIF measure
+# Tạo một mô hình hồi quy với tất cả các biến để lấy VIF
+  
+# A variance inflation factor (VIF) is a measure of the amount of multicollinearity
+# in regression analysis. Multicollinearity exists when there is a correlation between 
+# multiple independent variables in a multiple regression model. 
+# This can adversely affect the regression results.
+  
+# VIF là phép đo tính đa cộng tuyến trong phân tích hồi quy. Tính đa cộng tuyến tồn tại khi
+# có sự tương quan giữa các biến độc lập trong hồi quy đa biến. Tính đa cộng tuyến ảnh hưởng không 
+# tốt với kết quả phân tích hồi quy
+ 
+GLM1<- glm(price_label2~Power_HP+Displacement_cm3+Mileage_km, family=binomial(link="logit"), data=cars_LR)
+summary(GLM1)
+# check VIF, if multiple variables have VIF>2.5, they should be a concern, one of variables should be removed,
+# here Displacement_cm3 and Power_HP (horsepower) are correlated as shown in explanatory data analysis part,
+# confirmed by VIF >2.5, we choose to exclude Displacement_cm3 from the model
+
+# kiểm tra VIF, nếu VIF của nhiều biến > 2.5, chúng sẽ ảnh hưởng xấu đến mô hình, một trong số những biến đó
+# cần được loại bỏ, Displacement_cm3 và Power_HP (horsepower) tương quan với nhau theo như phần trực quan hóa 
+# ở trên, đã được kiểm chứng lần 2 với VIF > 2.5, vì vậy chúng tôi chọn loại bỏ Displacement_cm3 khỏi mô hình
+VIF<-car::vif(GLM1)
+
+# check linearity between independent variables and logit of outcome
+# kiểm tra sự tuyến tính giữa các biến độc lập và log odd của biến phụ thuộc
+
+GLM2<- glm(price_label2~Power_HP+Mileage_km, family=binomial(link="logit"), data=cars_LR)
+
+# calculate the probabilities
+# tính xác suất 
+probabilities <- predict(GLM2, type = "response")
+
+# calculate the logarithm of log odds
+# Tìm logarit của log odd
+logit <- log(probabilities/(1-probabilities))
+
+#plot to check linearity between selected independent variables and logit of outcome
+# trực quan hóa để kiểm tra sự tuyến tính giữa biến độc lập đã chọn và logarit của biến phụ thuộc
+
+# Result: Logit of outcome showed its linearity with 2 independent variables (Power_HP and Mileage_km), and 
+# two independent variables don't show their linearity with each other
+# Kết quả: Logarit của biến phụ thuộc có sự tuyến tính với 2 biến độc lập đã chọn là Power_HP và Mileage_km, 
+# 2 biến độc lập đã chọn là POwer_HP và Mileage_km không có sự tuyến tính với nhau.
+pairs(logit~Power_HP+Mileage_km, data = cars_LR,
+      na.action = stats::na.pass)
+
+
+# preprocess the data
+# tiền xử lý dữ liệu
+
+# Set "affordable" as reference value 
+# Đặt giá trị tham chiếu là "affordable" 
+cars_LR<- cars_LR %>%
+  mutate(price_label=relevel(factor(cars_LR$price_label), ref="affordable"))
+
+cars_LR$price_label2<- NULL
+
+# drop rows with n/a value
+# Bỏ những giá trị n/a
+cars_LR<-na.omit(cars_LR)
+
+
+#prepare for logistic regression model
+# Chuẩn bị cho mô hình
+
+
+# before fitting into the model, we will check the plot to see if there is any
+# outlier and how selected predictors affect price ranges
+
+# trước khi chạy mô hình, kiểm tra plot để tìm ra giá trị ngoại lai và xem biến độc lập 
+# ảnh hưởng đến khoảng giá như thế nào
+
+# The higher horsepower, the more likely for a car to be expensive
+# Horsepower càng cao, ô tô càng đắt
+ggplot(cars_LR, aes(x = Power_HP, fill = price_label)) +
+  geom_histogram(position = "fill")
+
+
+# The more mileages driven, the more likely for a car to be affordable
+# Xe đã đi được càng nhiều, mức giá càng có khả năng ở mức vừa phải
+ggplot(cars_LR, aes(x = Mileage_km, fill = price_label)) +
+  geom_histogram(position = "fill")
+
+# Colour affects price range? Not really
+# màu xe ảnh hưởng tới giá xe? Không hẳn
+ggplot(cars_LR, aes(x = Colour, fill = price_label)) +
+  geom_bar(position = "fill")
+
+# some brands have all of their cars in affordable price range
+# một vài nhãn hiệu có tất cả các xe trong mức giá vừa phải (affordable)
+ggplot(cars_LR, aes(x = Vehicle_brand, fill = price_label)) +
+  geom_bar(position = "fill")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+# doors number affects price range? Outlier detected
+# số cửa ảnh hưởng tới giá xe? Giá trị ngoại lai được phát hiện (55)
+ggplot(cars_LR, aes(x = Doors_number, fill = price_label)) +
+  geom_bar(position = "fill")
+# A car has 55 doors? => Must be a typo, this should be corrected into 5
+# Xe có 55 cửa? => lỗi nhập dữ liệu, nên sửa thành 5
+check<-cars_LR[cars_LR$Doors_number==55,]
+fix_door_no<-gsub("55", "5", cars_LR$Doors_number)
+cars_LR$Doors_number<-fix_door_no
+cars_LR$Doors_number<-factor(cars_LR$Doors_number)
+
+# Production year affects price range? In recent years there is upwards trend in car price
+# năm sản xuất có ảnh hưởng tới giá xe? Trong vài năm gần đây có sự tăng giá xe
+ggplot(cars_LR, aes(x = Production_year, fill = price_label)) +
+  geom_bar(position = "fill")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+# Type of car affects price range? yes
+# loại xe có ảnh hưởng tới giá? Có
+ggplot(cars_LR, aes(x = Type, fill = price_label)) +
+  geom_bar(position = "fill")+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+
+# Include variables: Production_year, Vehicle_brand, Type, Doors_number, Mileage_km, Power_HP, 
+# Fuel_type, Drive, Transmission as predictors, price_label as binary outcome
+# các biến độc lập được chọn cho mô hình: Production_year, Vehicle_brand, Type, Doors_number, Mileage_km, Power_HP, 
+# Fuel_type, Drive, Transmission. Price_label là biến phụ thuộc
+cars_LR2<- select(cars_LR, Production_year, Vehicle_brand, Type, Doors_number, Mileage_km, Power_HP, 
+                  Fuel_type, Drive, Transmission, price_label)
+cars_LR2 <- cars_LR2 %>%
+  mutate(price_label = relevel(factor(price_label), ref = "affordable")) %>%
+  mutate(Production_year = relevel(factor(Production_year), ref = "2021")) %>%
+  mutate(Vehicle_brand= relevel(factor(Vehicle_brand), ref="Daewoo")) %>%
+  mutate(Type=relevel(factor(Type), ref="compact")) %>%
+  mutate(Doors_number=relevel(factor(Doors_number), ref="2")) %>%
+  mutate(Drive=relevel(factor(Drive), ref= "Front wheels"))%>%
+  mutate(Transmission=relevel(factor(Transmission), ref= "Automatic"))%>%
+  mutate(Fuel_type=relevel(factor(Fuel_type), ref= "Gasoline"))
+cars_LR2<-cars_LR2%>%na.omit()
+
+
+# Divide the data, 80% for training, 20% for testing
+# chia dữ liệu 80% cho huấn luyện, 20% cho kiểm tra
+set.seed(1)
+
+label_index <- createDataPartition(y = cars_LR2$price_label, p = 0.80, list = FALSE)
+
+trn_price <- cars_LR2[label_index, ]
+tst_price<- cars_LR2[-label_index, ]
+
+
+
+price_LR <- train(price_label ~ .,
+                       method = "glm",
+                       family = binomial(link = "logit"), data = trn_price,
+                       trControl = trainControl(method = "cv", number = 5))
+
+
+summary(price_LR)
+## since reference level is set for each variable, and "affordable" is set as reference level of
+# price range, result of the model is to predict whether a car is less likely
+# or more likely to be expensive compared to reference level of each variable
+## vì mức tham chiếu được thiết lập cho mỗi biến, và "affordable" là mức tham chiếu cho khoảng giá, 
+# kết quả của mô hình này dự đoán khả năng một chiếc ô tô có nhiều hay ít khả năng đắt hơn so với mức tham chiếu ở mỗi biến
+
+#predict the price ranges on test data
+# dự đoán khoảng giá xe cho dữ liệu kiểm tra
+
+predicted_label <- predict(price_LR, tst_price)
+#Confusion matrix
+# matrix thể hiện kết quả
+confusionmatrix<-confusionMatrix(as.factor(predicted_label), as.factor(tst_price$price_label))
+
+confusionmatrix
+
+
